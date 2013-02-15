@@ -27,24 +27,14 @@ this.addListenerOnce("appear", function() {
   //var camera = new THREE.OrthographicCamera(-3, 3, -3, 3);//75, 1.5, 0.1, 1000);
   var camera = new THREE.PerspectiveCamera();//75, 1.5, 0.1, 1000);
   var renderer = new THREE.WebGLRenderer();
-  //renderer.setSize(window.innerWidth, window.innerHeight);
   var dom_element = this.getContentElement().getDomElement()
   dom_element.appendChild(renderer.domElement);
-  //var geometry = new THREE.CubeGeometry(1,1,1);
-  var geometry = new THREE.SphereGeometry(1,24,18);
-  var material = new THREE.MeshPhongMaterial({color: 0x0000ff});
-  var cube = new THREE.Mesh(geometry, material);
+  var object = null;
   var light1 = new THREE.DirectionalLight(0xffeedd, 0.8);
-  light1.position.set(10,10,0).normalize();
-  light1.target = cube;
-
   var light2 = new THREE.AmbientLight(0x101030);
 
-  scene.add(cube);
   scene.add(light1);
   scene.add(light2);
-
-  camera.position.z = 5;
 
 	var controls = new THREE.TrackballControls( camera, dom_element );
 	controls.rotateSpeed = 5.0;
@@ -56,6 +46,9 @@ this.addListenerOnce("appear", function() {
 	controls.dynamicDampingFactor = 0.3;
 	controls.addEventListener( 'change', function () {
 
+		if(object !== null) {
+	  		light1.target = object;
+		}
 		light1.position.copy(camera.position);
 		renderer.render(scene, camera);
 
@@ -69,11 +62,31 @@ this.addListenerOnce("appear", function() {
 	}
 
 
-  function render() { requestAnimationFrame(render);
-    cube.rotation.x += 0.1;
-    cube.rotation.y += 0.1;
-    renderer.render(scene, camera);
-  }
+	document.addEventListener( 'drop', function ( event ) {
+		event.preventDefault();
+		var file = event.dataTransfer.files[ 0 ];
+
+		var chunks = file.name.split( '.' );
+		var extension = chunks.pop().toLowerCase();
+		var filename = chunks.join( '.' );
+
+	var reader = new FileReader();
+	reader.addEventListener( 'load', function ( event ) { 
+		var contents = event.target.result; 
+		object = new THREE.OBJLoader().parse( contents );                                                  
+		object.name = filename;
+		scene.add(object);
+		object.children[0].geometry.computeBoundingSphere();
+		
+		var pos = object.children[0].geometry.boundingSphere.center;
+		var r = object.children[0].geometry.boundingSphere.radius;
+		camera.position.set(pos.x + 2*r, pos.y, pos.z);
+	}, false );
+
+	reader.readAsText(file);
+	}, false );
+
+
 
   function resize(sz) {
     camera.aspect = sz.width / sz.height;
