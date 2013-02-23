@@ -11,6 +11,7 @@
 /* ************************************************************************
 
 #asset(threeapp/*)
+#asset(threeapp/icons/*)
 
 ************************************************************************ */
 
@@ -74,10 +75,31 @@ qx.Class.define("threeapp.Application",
 
       // toolbar
       var toolbar = new qx.ui.toolbar.ToolBar();
+      toolbar.setShow("icon");
       mainContainer.add(toolbar, {flex:0});
-      var updateButton = new qx.ui.toolbar.Button(this.tr("Update"), "qx/icon/Tango/22/actions/view-refresh.png");
-      updateButton.setToolTipText(this.tr("Update the view"));
-      toolbar.add(updateButton);
+
+      var resetViewButton = new qx.ui.toolbar.Button(this.tr("Reset view"), "threeapp/icons/pqResetCamera24.png");
+      resetViewButton.setToolTipText(this.tr("Reset the view"));
+      toolbar.add(resetViewButton);
+
+      var xPlusButton = new qx.ui.toolbar.Button(this.tr("+X"), "threeapp/icons/pqXPlus24.png");
+      xPlusButton.setToolTipText(this.tr("Set view direction to +X"));
+      toolbar.add(xPlusButton);
+      var xMinusButton = new qx.ui.toolbar.Button(this.tr("-X"), "threeapp/icons/pqXMinus24.png");
+      xMinusButton.setToolTipText(this.tr("Set view direction to +X"));
+      toolbar.add(xMinusButton);
+      var yPlusButton = new qx.ui.toolbar.Button(this.tr("+Y"), "threeapp/icons/pqYPlus24.png");
+      yPlusButton.setToolTipText(this.tr("Set view direction to +Y"));
+      toolbar.add(yPlusButton);
+      var yMinusButton = new qx.ui.toolbar.Button(this.tr("-Y"), "threeapp/icons/pqYMinus24.png");
+      yMinusButton.setToolTipText(this.tr("Set view direction to +Y"));
+      toolbar.add(yMinusButton);
+      var zPlusButton = new qx.ui.toolbar.Button(this.tr("+Z"), "threeapp/icons/pqZPlus24.png");
+      zPlusButton.setToolTipText(this.tr("Set view direction to +Z"));
+      toolbar.add(zPlusButton);
+      var zMinusButton = new qx.ui.toolbar.Button(this.tr("-Z"), "threeapp/icons/pqZMinus24.png");
+      zMinusButton.setToolTipText(this.tr("Set view direction to -Z"));
+      toolbar.add(zMinusButton);
 
       // main section
       var splitContainer = new qx.ui.container.Composite(new qx.ui.layout.VBox());
@@ -95,9 +117,13 @@ qx.Class.define("threeapp.Application",
 
 
       // update logic
-      updateButton.addListener("execute", function() {
-        alert("Update clicked!");
-      }, this);
+      resetViewButton.addListener("execute", function() { threeView.resetView(); }, this);
+      xPlusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.X, 1); }, this );
+      xMinusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.X, -1); }, this );
+      yPlusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.Y, 1); }, this );
+      yMinusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.Y, -1); }, this );
+      zPlusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.Z, 1); }, this );
+      zMinusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.Z, -1); }, this );
     }
   }
 });

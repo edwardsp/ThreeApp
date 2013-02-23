@@ -22,9 +22,6 @@ qx.Class.define("threeapp.ThreeView",
   {
     this.base(arguments);
 
-    this.__timer = new qx.event.Timer();
-    this.__timer.setInterval(50);
-
     this._scene = new THREE.Scene();
     this._camera = new THREE.PerspectiveCamera();
     this._renderer = new THREE.WebGLRenderer();
@@ -34,102 +31,150 @@ qx.Class.define("threeapp.ThreeView",
     this._scene.add(this._light1);
     this._scene.add(this._light2);
 
-    this.addListener("resize", this.resize, this);
-    this.__timer.addListener("interval", this.__animate, this);
+    this.addListener("resize", function(e) { this.resize(e.getData()); }, this);
 
     this.addListener("mousedown", this.__mousedown, this);
     this.addListener("mousewheel", this.__mousewheel, this);
-    this.capture(true);
 
     this.addListenerOnce("appear", function() {
       var qxThis = this;
       var dom_element = this.getContentElement().getDomElement()
       dom_element.appendChild(this._renderer.domElement);
-/*
-      this._controls = new THREE.TrackballControls(this._camera, dom_element);
-      this._controls.rotateSpeed = 5.0;
-      this._controls.zoomSpeed = 2.0;
-      this._controls.panSpeed = 2.0;
-      this._controls.noZoom = false;
-      this._controls.noPan = false;
-      this._controls.staticMoving = true;
-      this._controls.dynamicDampingFactor = 0.3;
-      this._controls.addEventListener('change', function() { qxThis.__render(); }, false);
-*/
-      document.addEventListener( 'drop', function ( event ) {
-        event.preventDefault();
-	var file = event.dataTransfer.files[ 0 ];
 
-	var chunks = file.name.split( '.' );
+      document.addEventListener("drop", function(event) {
+        event.preventDefault();
+	var file = event.dataTransfer.files[0];
+
+	var chunks = file.name.split(".");
 	var extension = chunks.pop().toLowerCase();
-	var filename = chunks.join( '.' );
+	var filename = chunks.join(".");
 
 	var reader = new FileReader();
-	reader.addEventListener( 'load', function ( event ) { 
+	reader.addEventListener("load", function(event) { 
+          if(qxThis._object !== null) {
+            qxThis._scene.remove(qxThis._object);
+            qxThis._object = null;
+          }
           var contents = event.target.result; 
-	  qxThis._object = new THREE.OBJLoader().parse( contents );                                                  
-	  qxThis._object.name = filename;
-	  qxThis._scene.add(qxThis._object);
-	  qxThis._object.children[0].geometry.computeBoundingSphere();
-		
-	  var pos = qxThis._object.children[0].geometry.boundingSphere.center;
-	  var r = qxThis._object.children[0].geometry.boundingSphere.radius;
-	  qxThis._camera.position.set(pos.x + 2*r, pos.y, pos.z);
-qxThis.__render();
-	}, false );
+          switch(extension) {
+            case 'obj': 
+              qxThis._object = new THREE.OBJLoader().parse(contents);
+              break;
+            case 'stl':
+              var geometry = new THREE.STLLoader().parse(contents);
+              //geometry.sourceType = "stl";
+              //geometry.sourceFile = file.name;
+              //geometry.computeCentroids();
+              //geometry.computeFaceNormals();
+              //geometry.computeBoundingSphere();
+              var material = new THREE.MeshLambertMaterial();
+              material.side = THREE.DoubleSide;
+              var mesh = new THREE.Mesh(geometry, material);
+              mesh.name = filename;
+              qxThis._object = new THREE.Object3D();
+              qxThis._object.add(mesh);
+              break;
+          }
+          if(qxThis._object !== null) {
+            qxThis._object.name = filename;
+            qxThis._scene.add(qxThis._object);
+            qxThis.resetViewOnAxis(threeapp.ThreeView.AXIS.X, 1);
+          }
+	}, false);
 
         reader.readAsText(file);
-      }, false );
+      }, false);
 
       this.resize(this.getInnerSize());
-      this.__timer.start();
 
     }, this);
   },
   statics :
   {
-    STATE : { NONE : 0, ROTATE : 1, ZOOM : 2, PAN : 3 }
+    STATE : { NONE : 0, ROTATE : 1, ZOOM : 2, PAN : 3 },
+    AXIS : { X : 0, Y : 1, Z : 2 }
   },
   members :
   {
-    resize : function(sz) {
-      if (this._camera !== null && this._renderer !== null) {
-        this._camera.aspect = sz.width / sz.height;
-        this._camera.updateProjectionMatrix();
-        this._renderer.setSize(sz.width, sz.height);
-        this._renderer.render(this._scene, this._camera);
+    resetView : function() {
+      var bbox = new THREE.Box3()
+      for(var i = 0; i < this._object.children.length; i++) {
+        this._object.children[i].geometry.computeBoundingBox();
+        bbox.union(this._object.children[i].geometry.boundingBox);
       }
+      var bsphere = bbox.getBoundingSphere();
 
+      var v = this.__target.clone();
+      v.sub(this._camera.position.clone()).normalize().multiplyScalar(2.0*bsphere.radius);
+      
+      this.__target.copy(bsphere.center);
+      this._camera.position.copy(bsphere.center).sub(v);
+      this.__update();
+    },
+    resetViewOnAxis : function(axis, direction) {
+      var bbox = new THREE.Box3()
+      for(var i = 0; i < this._object.children.length; i++) {
+        this._object.children[i].geometry.computeBoundingBox();
+        bbox.union(this._object.children[i].geometry.boundingBox);
+      }
+      var bsphere = bbox.getBoundingSphere();
+      var offset = 2 * bsphere.radius;
+      if(direction<0.0) {
+        offset = -offset;
+      }
+ 
+      if(axis == this.self(arguments).AXIS.X) {
+        this._camera.position.set(bsphere.center.x + offset, bsphere.center.y, bsphere.center.z);
+        this._camera.up.set(0.0,0.0,1.0);
+      } else if(axis == this.self(arguments).AXIS.Y) {
+        this._camera.position.set(bsphere.center.x, bsphere.center.y + offset, bsphere.center.z);
+        this._camera.up.set(0.0,0.0,1.0);
+      } else if(axis == this.self(arguments).AXIS.Z) {
+        this._camera.position.set(bsphere.center.x, bsphere.center.y, bsphere.center.z + offset);
+        this._camera.up.set(0.0,1.0,0.0);
+      }
+      this.__target.copy(bsphere.center);
+      this.__update();
+    },
+    resize : function(sz) {
       // for controls
       this.__screen.width = sz.width;
       this.__screen.height = sz.height;
       this.__screen.offsetLeft = 0;
       this.__screen.offsetTop = 0;
       this.__radius = (sz.width + sz.height) / 4;
+
+      if (this._camera !== null && this._renderer !== null) {
+        this._camera.aspect = sz.width / sz.height;
+        this._camera.updateProjectionMatrix();
+        this._renderer.setSize(sz.width, sz.height);
+        this._renderer.render(this._scene, this._camera);
+      }
     },
     __mousedown : function(mouseEvent) {
       //var btn = mouseEvent.getButton();
-      if (this.__ctrlState == threeapp.ThreeView.STATE.NONE) {
+      if (this.__ctrlState == this.self(arguments).STATE.NONE) {
         if (mouseEvent.isLeftPressed()) {
-          this.__ctrlState = threeapp.ThreeView.STATE.ROTATE;
+          this.__ctrlState = this.self(arguments).STATE.ROTATE;
         }
         else if (mouseEvent.isMiddlePressed()) {
-          this.__ctrlState = threeapp.ThreeView.STATE.PAN;
+          this.__ctrlState = this.self(arguments).STATE.PAN;
         }
         else if (mouseEvent.isRightPressed()) {
-          this.__ctrlState = threeapp.ThreeView.STATE.ZOOM;
+          this.__ctrlState = this.self(arguments).STATE.ZOOM;
         }
+        this.capture(true);
       }
 
-      if (this.__ctrlState == threeapp.ThreeView.STATE.ROTATE) {
+      if (this.__ctrlState == this.self(arguments).STATE.ROTATE) {
         this.__rotateStart = this.__rotateEnd = this._getMouseProjectionOnBall(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
       }
-      else if (this.__ctrlState == threeapp.ThreeView.STATE.PAN) {
+      else if (this.__ctrlState == this.self(arguments).STATE.PAN) {
         this.__panStart = this.__panEnd = this._getMouseOnScreen(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
       }
-      else if (this.__ctrlState == threeapp.ThreeView.STATE.ZOOM) {
+      else if (this.__ctrlState == this.self(arguments).STATE.ZOOM) {
         this.__zoomStart = this.__zoomEnd = this._getMouseOnScreen(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
       }
@@ -138,26 +183,29 @@ qxThis.__render();
       this.addListener("mousemove", this.__mousemove, this);
     },
     __mousemove : function(mouseEvent) {
-      if (this.__ctrlState == threeapp.ThreeView.STATE.ROTATE) {
+      if (this.__ctrlState == this.self(arguments).STATE.ROTATE) {
         this.__rotateEnd = this._getMouseProjectionOnBall(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
       }
-      else if (this.__ctrlState == threeapp.ThreeView.STATE.PAN) {
+      else if (this.__ctrlState == this.self(arguments).STATE.PAN) {
         this.__panEnd = this._getMouseOnScreen(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
       }
-      else if (this.__ctrlState == threeapp.ThreeView.STATE.ZOOM) {
+      else if (this.__ctrlState == this.self(arguments).STATE.ZOOM) {
         this.__zoomEnd = this._getMouseOnScreen(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
       }
+      this.__update();
     },
     __mouseup : function(mouseEvent) {
-      this.__ctrlState = threeapp.ThreeView.STATE.NONE;
+      this.__ctrlState = this.self(arguments).STATE.NONE;
       this.removeListener("mouseup", this.__mouseup, this);
       this.removeListener("mousemove", this.__mousemove, this);
+      this.__update();
     },
     __mousewheel : function(mouseWheel) {
-      console.log("mousewheel: " + mouseWheel.getWheelDelta());
+      this.__zoomStart.y += (1 / mouseWheel.getWheelDelta()) * 0.05;
+      this.__update();
     },
     _getMouseProjectionOnBall : function(x, y) {
       var mouseOnBall = new THREE.Vector3(
@@ -181,13 +229,6 @@ qxThis.__render();
         (x - this.__screen.offsetLeft) / (this.__radius * 0.5),
         (y - this.__screen.offsetTop) / (this.__radius * 0.5));
     },
-    __render : function() {
-      if(this._object !== null) {
-        this._light1.target = this._object;
-      }
-      this._light1.position.copy(this._camera.position);
-      this._renderer.render(this._scene, this._camera);
-    }, 
     __rotateCamera : function() {
       var angle = Math.acos(this.__rotateStart.dot(this.__rotateEnd) / this.__rotateStart.length() / this.__rotateEnd.length());
       if(angle) {
@@ -241,23 +282,22 @@ qxThis.__render();
       }
     },
     __update : function() {
-      this.__eye.subVectors(this._camera.position, this.__target);
-      this.__rotateCamera();
-      this.__panCamera();
-      this.__zoomCamera();
-      this._camera.position.addVectors(this.__target, this.__eye);
-      this.__checkDistances();
-      this._camera.lookAt(this.__target);
-      if(this.__lastPosition.distanceToSquared(this._camera.position) > 0) {
-        this.__render();
-        this.__lastPosition.copy(this._camera.position);
+      if(this._object !== null) {
+        this.__eye.subVectors(this._camera.position, this.__target);
+        this.__rotateCamera();
+        this.__panCamera();
+        this.__zoomCamera();
+        this._camera.position.addVectors(this.__target, this.__eye);
+        this.__checkDistances();
+        this._camera.lookAt(this.__target);
+        if(this.__lastPosition.distanceToSquared(this._camera.position) > 0) {
+          this._light1.target = this._object;
+          this._light1.position.copy(this._camera.position);
+          this._renderer.render(this._scene, this._camera);
+          this.__lastPosition.copy(this._camera.position);
+        }
       }
     },
-    __animate : function() {
-      this.__update();
-      //this._controls.update();
-    },
-    __timer : null,
     _scene : null,
     _camera : null,
     _renderer : null,
@@ -267,7 +307,8 @@ qxThis.__render();
     _light2 : null,
 
     // members required for movement
-    __ctrlState : 0, //threeapp.ThreeView.STATE.NONE,
+    __position : new THREE.Vector3(),
+    __ctrlState : 0,//this.self(arguments).STATE.NONE,
     __eye : new THREE.Vector3(),
     __target : new THREE.Vector3(),
     __lastPosition : new THREE.Vector3(),

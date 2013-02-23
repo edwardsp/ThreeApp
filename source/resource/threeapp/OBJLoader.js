@@ -128,6 +128,7 @@ THREE.OBJLoader.prototype = {
 
 		var geometry = new THREE.Geometry();
 		var material = new THREE.MeshLambertMaterial();
+		material.side = THREE.DoubleSide;
 		var mesh = new THREE.Mesh( geometry, material );
 
 		var vertices = [];
