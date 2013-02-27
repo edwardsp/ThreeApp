@@ -36,6 +36,12 @@ qx.Class.define("threeapp.ThreeView",
     this.addListener("mousedown", this.__mousedown, this);
     this.addListener("mousewheel", this.__mousewheel, this);
 
+
+    this.__highlightMaterial = new THREE.MeshLambertMaterial();
+    this.__highlightMaterial.side = THREE.DoubleSide;
+    this.__highlightMaterial.color.setRGB(1,0,0);
+
+
     this.addListenerOnce("appear", function() {
       var qxThis = this;
       var dom_element = this.getContentElement().getDomElement()
@@ -62,11 +68,11 @@ qx.Class.define("threeapp.ThreeView",
               break;
             case 'stl':
               var geometry = new THREE.STLLoader().parse(contents);
-              //geometry.sourceType = "stl";
-              //geometry.sourceFile = file.name;
-              //geometry.computeCentroids();
-              //geometry.computeFaceNormals();
-              //geometry.computeBoundingSphere();
+              geometry.sourceType = "stl";
+              geometry.sourceFile = file.name;
+              geometry.computeCentroids();
+              geometry.computeFaceNormals();
+              geometry.computeBoundingSphere();
               var material = new THREE.MeshLambertMaterial();
               material.side = THREE.DoubleSide;
               var mesh = new THREE.Mesh(geometry, material);
@@ -84,8 +90,6 @@ qx.Class.define("threeapp.ThreeView",
 
         reader.readAsText(file);
       }, false);
-
-      this.resize(this.getInnerSize());
 
     }, this);
   },
@@ -140,8 +144,8 @@ qx.Class.define("threeapp.ThreeView",
       // for controls
       this.__screen.width = sz.width;
       this.__screen.height = sz.height;
-      this.__screen.offsetLeft = 0;
-      this.__screen.offsetTop = 0;
+      this.__screen.offsetLeft = sz.left;
+      this.__screen.offsetTop = sz.top;
       this.__radius = (sz.width + sz.height) / 4;
 
       if (this._camera !== null && this._renderer !== null) {
@@ -152,6 +156,26 @@ qx.Class.define("threeapp.ThreeView",
       }
     },
     __mousedown : function(mouseEvent) {
+      if(this.__picked !== null) {
+        this.__picked.material = this.__pickedMaterial;
+        this.__picked = null;
+        this.__pickedMaterial = null;
+      }
+      if(this._object !== null) {
+        var vector = new THREE.Vector3(((mouseEvent.getViewportLeft()-this.__screen.offsetLeft)/this.__screen.width)*2-1, -((mouseEvent.getViewportTop()-this.__screen.offsetTop)/this.__screen.height)*2+1, 0.5);
+        this.__projector.unprojectVector(vector, this._camera);
+        this.__ray.set(this._camera.position, vector.sub(this._camera.position).normalize());
+        var objects = [this._object];
+        var intersects = this.__ray.intersectObjects(objects, true);
+        if(intersects.length > 0) {
+          console.log(intersects[0].object.name);
+          this.__picked = intersects[0].object;
+          this.__pickedMaterial = this.__picked.material;
+          this.__picked.material = this.__highlightMaterial;
+          this._renderer.render(this._scene, this._camera);
+        }
+      }
+
       //var btn = mouseEvent.getButton();
       if (this.__ctrlState == this.self(arguments).STATE.NONE) {
         if (mouseEvent.isLeftPressed()) {
@@ -326,6 +350,13 @@ qx.Class.define("threeapp.ThreeView",
     __panStart : new THREE.Vector2(),
     __panEnd : new THREE.Vector2(),
     __zoomStart : new THREE.Vector2(),
-    __zoomEnd : new THREE.Vector2()
+    __zoomEnd : new THREE.Vector2(),
+
+    // members for selection
+    __projector : new THREE.Projector(),
+    __ray : new THREE.Raycaster(),
+    __picked : null,
+    __pickedMaterial : null,
+    __highlightMaterial : null
   }
 });
