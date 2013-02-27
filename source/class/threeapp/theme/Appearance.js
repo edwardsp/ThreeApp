@@ -14,5 +14,17 @@ qx.Theme.define("threeapp.theme.Appearance",
 
   appearances :
   {
+    "app-footer" :
+    {
+      style : function(states)
+      {
+        return {
+          //font : "bold",
+          textColor : "text-selected",
+          padding : [4, 12],
+          decorator : "app-header"
+        };
+      }
+    }
   }
 });
