@@ -76,7 +76,7 @@ THREE.STLLoader.prototype = {
 
 			while( ( result = patternNormal.exec( text ) ) != null ) {
 
-				var normal = new THREE.Vector3( result[ 1 ], result[ 3 ], result[ 5 ] );
+				var normal = new THREE.Vector3( parseFloat(result[ 1 ]), parseFloat(result[ 3 ]), parseFloat(result[ 5 ]) );
 
 			}
 
@@ -85,7 +85,7 @@ THREE.STLLoader.prototype = {
 
 			while( ( result = patternVertex.exec( text ) ) != null ) {
 
-				geometry.vertices.push(	new THREE.Vector3( result[ 1 ], result[ 3 ], result[ 5 ] ) );
+				geometry.vertices.push(	new THREE.Vector3( parseFloat(result[ 1 ]), parseFloat(result[ 3 ]), parseFloat(result[ 5 ]) ) );
 
 			}
 
