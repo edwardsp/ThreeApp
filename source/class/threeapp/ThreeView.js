@@ -98,7 +98,7 @@ qx.Class.define("threeapp.ThreeView",
   },
   statics :
   {
-    STATE : { NONE : 0, ROTATE : 1, ZOOM : 2, PAN : 3 },
+    STATE : { NONE : 0, ROTATE : 1, ZOOM : 2, PAN : 3, PICK : 4, PICK_THROUGH : 5 },
     AXIS : { X : 0, Y : 1, Z : 2 }
   },
   members :
@@ -191,29 +191,14 @@ qx.Class.define("threeapp.ThreeView",
       return this.__renderer.getClearAlpha();
     },
     __mousedown : function(mouseEvent) {
-      if(this.__picked !== null) {
-        this.__picked.material = this.__pickedMaterial;
-        this.__picked = null;
-        this.__pickedMaterial = null;
-      }
-      if(this.__object !== null) {
-        var vector = new THREE.Vector3(((mouseEvent.getViewportLeft()-this.__screen.offsetLeft)/this.__screen.width)*2-1, -((mouseEvent.getViewportTop()-this.__screen.offsetTop)/this.__screen.height)*2+1, 0.5);
-        this.__projector.unprojectVector(vector, this.__camera);
-        this.__ray.set(this.__camera.position, vector.sub(this.__camera.position).normalize());
-        var objects = [this.__object];
-        var intersects = this.__ray.intersectObjects(objects, true);
-        if(intersects.length > 0) {
-          console.log(intersects[0].object.name);
-          this.__picked = intersects[0].object;
-          this.__pickedMaterial = this.__picked.material;
-          this.__picked.material = this.__highlightMaterial;
-          this.__renderer.render(this.__scene, this.__camera);
-        }
-      }
-
-      //var btn = mouseEvent.getButton();
       if (this.__ctrlState == this.self(arguments).STATE.NONE) {
-        if (mouseEvent.isLeftPressed()) {
+        if (mouseEvent.getModifiers() & qx.event.type.Dom.CTRL_MASK) {
+          this.__ctrlState = this.self(arguments).STATE.PICK;
+        }
+        else if (mouseEvent.getModifiers() & qx.event.type.Dom.SHIFT_MASK) {
+          this.__ctrlState = this.self(arguments).STATE.PICK_THROUGH;
+        }
+        else if (mouseEvent.isLeftPressed()) {
           this.__ctrlState = this.self(arguments).STATE.ROTATE;
         }
         else if (mouseEvent.isMiddlePressed()) {
@@ -222,24 +207,58 @@ qx.Class.define("threeapp.ThreeView",
         else if (mouseEvent.isRightPressed()) {
           this.__ctrlState = this.self(arguments).STATE.ZOOM;
         }
-        this.capture(true);
       }
 
       if (this.__ctrlState == this.self(arguments).STATE.ROTATE) {
+        this.capture(true);
         this.__rotateStart = this.__rotateEnd = this._getMouseProjectionOnBall(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
+        this.addListener("mouseup", this.__mouseup, this);
+        this.addListener("mousemove", this.__mousemove, this);
       }
       else if (this.__ctrlState == this.self(arguments).STATE.PAN) {
+        this.capture(true);
         this.__panStart = this.__panEnd = this._getMouseOnScreen(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
+        this.addListener("mouseup", this.__mouseup, this);
+        this.addListener("mousemove", this.__mousemove, this);
       }
       else if (this.__ctrlState == this.self(arguments).STATE.ZOOM) {
+        this.capture(true);
         this.__zoomStart = this.__zoomEnd = this._getMouseOnScreen(
           mouseEvent.getViewportLeft(), mouseEvent.getViewportTop());
+        this.addListener("mouseup", this.__mouseup, this);
+        this.addListener("mousemove", this.__mousemove, this);
       }
-
-      this.addListener("mouseup", this.__mouseup, this);
-      this.addListener("mousemove", this.__mousemove, this);
+      else if (this.__ctrlState == this.self(arguments).STATE.PICK || this.__ctrlState == this.self(arguments).STATE.PICK_THROUGH) {
+        if(this.__picked !== null) {
+          this.__picked.forEach(function(p) { p[0].material = p[1]; });
+          this.__picked = null;
+        }
+        if(this.__object !== null) {
+          var vector = new THREE.Vector3(((mouseEvent.getViewportLeft()-this.__screen.offsetLeft)/this.__screen.width)*2-1, -((mouseEvent.getViewportTop()-this.__screen.offsetTop)/this.__screen.height)*2+1, 0.5);
+          this.__projector.unprojectVector(vector, this.__camera);
+          this.__ray.set(this.__camera.position, vector.sub(this.__camera.position).normalize());
+          var objects = [this.__object];
+          var intersects = this.__ray.intersectObjects(objects, true);
+          var l = intersects.length;
+          if(l > 0) {
+            this.__picked = [];
+            if(this.__ctrlState == this.self(arguments).STATE.PICK) {
+              l = 1;
+            }
+            for(var p=0; p<l; p++) {
+              console.log(intersects[p].object.name);
+              this.__picked.push([intersects[p].object, intersects[p].object.material]);
+            }
+            this.__picked.forEach(function(p) {
+              p[0].material = this.__highlightMaterial; 
+            }, this);
+          }
+        }
+        this.__renderer.render(this.__scene, this.__camera);
+        this.__ctrlState = this.self(arguments).STATE.NONE;
+      }
     },
     __mousemove : function(mouseEvent) {
       if (this.__ctrlState == this.self(arguments).STATE.ROTATE) {
@@ -298,12 +317,7 @@ qx.Class.define("threeapp.ThreeView",
         this.__eye.applyQuaternion(quaternion);
         this.__camera.up.applyQuaternion(quaternion);
         this.__rotateEnd.applyQuaternion(quaternion);
-        if(this.__staticMoving) {
-          this.__rotateStart.copy(this.__rotateEnd);
-        } else {
-          quaternion.setFromAxisAngle(axis, angle * (this.__dynamicDampingFactor - 1.0));
-          this.__rotateStart.applyQuaternion(quaternion);
-        }
+        this.__rotateStart.copy(this.__rotateEnd);
       }
     },
     __panCamera : function() {
@@ -314,22 +328,14 @@ qx.Class.define("threeapp.ThreeView",
         pan.add(this.__camera.up.clone().setLength(mouseChange.y));
         this.__camera.position.add(pan);
         this.__target.add(pan);
-        if(this.__staticMoving) {
-          this.__panStart = this.__panEnd;
-        } else {
-          this.__panStart.add(mouseChange.subVectors(this.__panEnd, this.__panStart).multiplyScalar(this.__dynamicDampingFactor));
-        }
+	this.__panStart = this.__panEnd;
       }
     },
     __zoomCamera : function() {
       var factor = 1.0 + (this.__zoomEnd.y - this.__zoomStart.y) * this.__zoomSpeed;
       if(factor != 1.0 && factor > 0.0) {
         this.__eye.multiplyScalar(factor);
-        if(this.__staticMoving) {
-          this.__zoomStart.copy(this.__zoomEnd);
-        } else {
-          this.__zoomStart.y += (this.__zoomEnd.y - this.__zoomStart.y) * this.__dynamicDampingFactor;
-        }
+	this.__zoomStart.copy(this.__zoomEnd);
       }
     },
     __checkDistances : function() {
@@ -375,8 +381,6 @@ qx.Class.define("threeapp.ThreeView",
     __radius : 1.0,
     __minDistance : 0,
     __maxDistance : Infinity,
-    __staticMoving : true,
-    __dynamicDampingFactor : 0.2,
     __rotateSpeed : 5.0,
     __panSpeed : 2.0,
     __zoomSpeed : 2.0,
@@ -391,7 +395,6 @@ qx.Class.define("threeapp.ThreeView",
     __projector : new THREE.Projector(),
     __ray : new THREE.Raycaster(),
     __picked : null,
-    __pickedMaterial : null,
     __highlightMaterial : null
   }
 });
