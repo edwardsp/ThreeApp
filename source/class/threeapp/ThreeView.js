@@ -14,6 +14,9 @@
 
 ************************************************************************ */
 
+/** 
+  * @ignore(THREE) 
+  */ 
 qx.Class.define("threeapp.ThreeView",
 {
   extend : qx.ui.core.Widget,
@@ -22,14 +25,14 @@ qx.Class.define("threeapp.ThreeView",
   {
     this.base(arguments);
 
-    this._scene = new THREE.Scene();
-    this._camera = new THREE.PerspectiveCamera();
-    this._renderer = new THREE.WebGLRenderer();
-    this._light1 = new THREE.DirectionalLight(0xffeedd, 0.8);
-    this._light2 = new THREE.AmbientLight(0x101030);
+    this.__scene = new THREE.Scene();
+    this.__camera = new THREE.PerspectiveCamera();
+    this.__renderer = new THREE.WebGLRenderer();
+    this.__light1 = new THREE.DirectionalLight(0xffeedd, 0.8);
+    this.__light2 = new THREE.AmbientLight(0x101030);
 
-    this._scene.add(this._light1);
-    this._scene.add(this._light2);
+    this.__scene.add(this.__light1);
+    this.__scene.add(this.__light2);
 
     this.addListener("resize", function(e) { this.resize(e.getData()); }, this);
 
@@ -45,7 +48,7 @@ qx.Class.define("threeapp.ThreeView",
     this.addListenerOnce("appear", function() {
       var qxThis = this;
       var dom_element = this.getContentElement().getDomElement()
-      dom_element.appendChild(this._renderer.domElement);
+      dom_element.appendChild(this.__renderer.domElement);
 
       document.addEventListener("drop", function(event) {
         event.preventDefault();
@@ -57,14 +60,14 @@ qx.Class.define("threeapp.ThreeView",
 
 	var reader = new FileReader();
 	reader.addEventListener("load", function(event) { 
-          if(qxThis._object !== null) {
-            qxThis._scene.remove(qxThis._object);
-            qxThis._object = null;
+          if(qxThis.__object !== null) {
+            qxThis.__scene.remove(qxThis.__object);
+            qxThis.__object = null;
           }
           var contents = event.target.result; 
           switch(extension) {
             case 'obj': 
-              qxThis._object = new THREE.OBJLoader().parse(contents);
+              qxThis.__object = new THREE.OBJLoader().parse(contents);
               break;
             case 'stl':
               var geometry = new THREE.STLLoader().parse(contents);
@@ -77,13 +80,13 @@ qx.Class.define("threeapp.ThreeView",
               material.side = THREE.DoubleSide;
               var mesh = new THREE.Mesh(geometry, material);
               mesh.name = filename;
-              qxThis._object = new THREE.Object3D();
-              qxThis._object.add(mesh);
+              qxThis.__object = new THREE.Object3D();
+              qxThis.__object.add(mesh);
               break;
           }
-          if(qxThis._object !== null) {
-            qxThis._object.name = filename;
-            qxThis._scene.add(qxThis._object);
+          if(qxThis.__object !== null) {
+            qxThis.__object.name = filename;
+            qxThis.__scene.add(qxThis.__object);
             qxThis.resetViewOnAxis(threeapp.ThreeView.AXIS.X, 1);
           }
 	}, false);
@@ -100,42 +103,65 @@ qx.Class.define("threeapp.ThreeView",
   },
   members :
   {
-    resetView : function() {
-      var bbox = new THREE.Box3()
-      for(var i = 0; i < this._object.children.length; i++) {
-        this._object.children[i].geometry.computeBoundingBox();
-        bbox.union(this._object.children[i].geometry.boundingBox);
+    getObjectStructure : function() {
+      var names = [];
+      if(this.__object !== null) {
+        var st = [];
+        var func = function(obj) {
+          st.push(obj.name);
+          if(obj.children.length === 0) {
+            names.push(st.join("."));
+          } else {
+            for(var i=0, l=obj.children.length; i<l; i++) {
+              func(obj.children[i]);
+            }
+          }
+          st.pop()
+        }
+        func(this.__object);
       }
-      var bsphere = bbox.getBoundingSphere();
+      return names;
+    },
+    getBoundingSphere : function() {
+      var bbox = new THREE.Box3();
+      if(this.__object !== null) {
+        this.__object.traverse(function(child) {
+          if(child instanceof THREE.Mesh) {
+            if(child.geometry.boundingBox === null) {
+              child.geometry.computeBoundingBox();
+            }
+            bbox.union(child.geometry.boundingBox);
+          }
+        });
+      }
+      return bbox.getBoundingSphere().clone();
+    },
+    resetView : function() {
+      var bsphere = this.getBoundingSphere();
 
       var v = this.__target.clone();
-      v.sub(this._camera.position.clone()).normalize().multiplyScalar(2.0*bsphere.radius);
+      v.sub(this.__camera.position.clone()).normalize().multiplyScalar(2.0*bsphere.radius);
       
       this.__target.copy(bsphere.center);
-      this._camera.position.copy(bsphere.center).sub(v);
+      this.__camera.position.copy(bsphere.center).sub(v);
       this.__update();
     },
     resetViewOnAxis : function(axis, direction) {
-      var bbox = new THREE.Box3()
-      for(var i = 0; i < this._object.children.length; i++) {
-        this._object.children[i].geometry.computeBoundingBox();
-        bbox.union(this._object.children[i].geometry.boundingBox);
-      }
-      var bsphere = bbox.getBoundingSphere();
+      var bsphere = this.getBoundingSphere();
       var offset = 2 * bsphere.radius;
       if(direction<0.0) {
         offset = -offset;
       }
  
       if(axis == this.self(arguments).AXIS.X) {
-        this._camera.position.set(bsphere.center.x + offset, bsphere.center.y, bsphere.center.z);
-        this._camera.up.set(0.0,0.0,1.0);
+        this.__camera.position.set(bsphere.center.x + offset, bsphere.center.y, bsphere.center.z);
+        this.__camera.up.set(0.0,0.0,1.0);
       } else if(axis == this.self(arguments).AXIS.Y) {
-        this._camera.position.set(bsphere.center.x, bsphere.center.y + offset, bsphere.center.z);
-        this._camera.up.set(0.0,0.0,1.0);
+        this.__camera.position.set(bsphere.center.x, bsphere.center.y + offset, bsphere.center.z);
+        this.__camera.up.set(0.0,0.0,1.0);
       } else if(axis == this.self(arguments).AXIS.Z) {
-        this._camera.position.set(bsphere.center.x, bsphere.center.y, bsphere.center.z + offset);
-        this._camera.up.set(0.0,1.0,0.0);
+        this.__camera.position.set(bsphere.center.x, bsphere.center.y, bsphere.center.z + offset);
+        this.__camera.up.set(0.0,1.0,0.0);
       }
       this.__target.copy(bsphere.center);
       this.__update();
@@ -148,12 +174,21 @@ qx.Class.define("threeapp.ThreeView",
       this.__screen.offsetTop = sz.top;
       this.__radius = (sz.width + sz.height) / 4;
 
-      if (this._camera !== null && this._renderer !== null) {
-        this._camera.aspect = sz.width / sz.height;
-        this._camera.updateProjectionMatrix();
-        this._renderer.setSize(sz.width, sz.height);
-        this._renderer.render(this._scene, this._camera);
+      if (this.__camera !== null && this.__renderer !== null) {
+        this.__camera.aspect = sz.width / sz.height;
+        this.__camera.updateProjectionMatrix();
+        this.__renderer.setSize(sz.width, sz.height);
+        this.__renderer.render(this.__scene, this.__camera);
       }
+    },
+    setBackgroundColor : function(color, opacity) {
+      this.__renderer.setClearColorHex(color, opacity !== undefined ? opacity : 1);
+    },
+    getBackgroundColor : function() {
+      return this.__renderer.getClearColor().getHex();
+    },
+    getBackgroundAlpha : function() {
+      return this.__renderer.getClearAlpha();
     },
     __mousedown : function(mouseEvent) {
       if(this.__picked !== null) {
@@ -161,18 +196,18 @@ qx.Class.define("threeapp.ThreeView",
         this.__picked = null;
         this.__pickedMaterial = null;
       }
-      if(this._object !== null) {
+      if(this.__object !== null) {
         var vector = new THREE.Vector3(((mouseEvent.getViewportLeft()-this.__screen.offsetLeft)/this.__screen.width)*2-1, -((mouseEvent.getViewportTop()-this.__screen.offsetTop)/this.__screen.height)*2+1, 0.5);
-        this.__projector.unprojectVector(vector, this._camera);
-        this.__ray.set(this._camera.position, vector.sub(this._camera.position).normalize());
-        var objects = [this._object];
+        this.__projector.unprojectVector(vector, this.__camera);
+        this.__ray.set(this.__camera.position, vector.sub(this.__camera.position).normalize());
+        var objects = [this.__object];
         var intersects = this.__ray.intersectObjects(objects, true);
         if(intersects.length > 0) {
           console.log(intersects[0].object.name);
           this.__picked = intersects[0].object;
           this.__pickedMaterial = this.__picked.material;
           this.__picked.material = this.__highlightMaterial;
-          this._renderer.render(this._scene, this._camera);
+          this.__renderer.render(this.__scene, this.__camera);
         }
       }
 
@@ -242,9 +277,9 @@ qx.Class.define("threeapp.ThreeView",
       } else {
         mouseOnBall.z = Math.sqrt(1.0 - length * length);
       }
-      this.__eye.copy(this._camera.position).sub(this.__target);
-      var projection = this._camera.up.clone().setLength(mouseOnBall.y);
-      projection.add(this._camera.up.clone().cross(this.__eye).setLength(mouseOnBall.x));
+      this.__eye.copy(this.__camera.position).sub(this.__target);
+      var projection = this.__camera.up.clone().setLength(mouseOnBall.y);
+      projection.add(this.__camera.up.clone().cross(this.__eye).setLength(mouseOnBall.x));
       projection.add(this.__eye.setLength(mouseOnBall.z));
       return projection;  
     },
@@ -261,7 +296,7 @@ qx.Class.define("threeapp.ThreeView",
         angle *= this.__rotateSpeed;
         quaternion.setFromAxisAngle(axis, -angle);
         this.__eye.applyQuaternion(quaternion);
-        this._camera.up.applyQuaternion(quaternion);
+        this.__camera.up.applyQuaternion(quaternion);
         this.__rotateEnd.applyQuaternion(quaternion);
         if(this.__staticMoving) {
           this.__rotateStart.copy(this.__rotateEnd);
@@ -275,9 +310,9 @@ qx.Class.define("threeapp.ThreeView",
       var mouseChange = this.__panEnd.clone().sub(this.__panStart);
       if(mouseChange.lengthSq()) {
         mouseChange.multiplyScalar(this.__eye.length() * this.__panSpeed);
-        var pan = this.__eye.clone().cross(this._camera.up).setLength(mouseChange.x);
-        pan.add(this._camera.up.clone().setLength(mouseChange.y));
-        this._camera.position.add(pan);
+        var pan = this.__eye.clone().cross(this.__camera.up).setLength(mouseChange.x);
+        pan.add(this.__camera.up.clone().setLength(mouseChange.y));
+        this.__camera.position.add(pan);
         this.__target.add(pan);
         if(this.__staticMoving) {
           this.__panStart = this.__panEnd;
@@ -298,37 +333,37 @@ qx.Class.define("threeapp.ThreeView",
       }
     },
     __checkDistances : function() {
-      if(this._camera.position.lengthSq() > this.__maxDistance * this.__maxDistance) {
-        this._camera.position.setLength(this.__maxDistance);
+      if(this.__camera.position.lengthSq() > this.__maxDistance * this.__maxDistance) {
+        this.__camera.position.setLength(this.__maxDistance);
       }
       if(this.__eye.lengthSq() < this.__minDistance * this.__minDistance) {
-        this._camera.position.addVectors(this.__target, this.__eye.setLength(this.__minDistance));
+        this.__camera.position.addVectors(this.__target, this.__eye.setLength(this.__minDistance));
       }
     },
     __update : function() {
-      if(this._object !== null) {
-        this.__eye.subVectors(this._camera.position, this.__target);
+      if(this.__object !== null) {
+        this.__eye.subVectors(this.__camera.position, this.__target);
         this.__rotateCamera();
         this.__panCamera();
         this.__zoomCamera();
-        this._camera.position.addVectors(this.__target, this.__eye);
+        this.__camera.position.addVectors(this.__target, this.__eye);
         this.__checkDistances();
-        this._camera.lookAt(this.__target);
-        if(this.__lastPosition.distanceToSquared(this._camera.position) > 0) {
-          this._light1.target = this._object;
-          this._light1.position.copy(this._camera.position);
-          this._renderer.render(this._scene, this._camera);
-          this.__lastPosition.copy(this._camera.position);
+        this.__camera.lookAt(this.__target);
+        if(this.__lastPosition.distanceToSquared(this.__camera.position) > 0) {
+          this.__light1.target = this.__object;
+          this.__light1.position.copy(this.__camera.position);
+          this.__renderer.render(this.__scene, this.__camera);
+          this.__lastPosition.copy(this.__camera.position);
         }
       }
     },
-    _scene : null,
-    _camera : null,
-    _renderer : null,
-    _object : null,
-    _controls : null,
-    _light1 : null,
-    _light2 : null,
+    __scene : null,
+    __camera : null,
+    __renderer : null,
+    __object : null,
+    __controls : null,
+    __light1 : null,
+    __light2 : null,
 
     // members required for movement
     __position : new THREE.Vector3(),

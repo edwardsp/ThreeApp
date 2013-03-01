@@ -105,6 +105,9 @@ qx.Class.define("threeapp.Application",
       var splitContainer = new qx.ui.container.Composite(new qx.ui.layout.VBox());
       splitContainer.setAppearance("app-main");
       var threeView = new threeapp.ThreeView();
+      //console.log(threeView.getBackgroundColor());
+      //console.log(threeView.getBackgroundAlpha());
+      //threeView.setBackgroundColor("0xff0000",1.0);
       mainContainer.add(threeView, {flex:1});
 
       // footer
