@@ -232,7 +232,7 @@ qx.Class.define("threeapp.ThreeView",
       }
       else if (this.__ctrlState == this.self(arguments).STATE.PICK || this.__ctrlState == this.self(arguments).STATE.PICK_THROUGH) {
         if(this.__picked !== null) {
-          this.__picked.forEach(function(p) { p[0].material = p[1]; });
+          for (var p in this.__picked) { this.__picked[p][0].material = this.__picked[p][1]; }
           this.__picked = null;
         }
         if(this.__object !== null) {
@@ -243,17 +243,18 @@ qx.Class.define("threeapp.ThreeView",
           var intersects = this.__ray.intersectObjects(objects, true);
           var l = intersects.length;
           if(l > 0) {
-            this.__picked = [];
+            this.__picked = {};
             if(this.__ctrlState == this.self(arguments).STATE.PICK) {
               l = 1;
             }
             for(var p=0; p<l; p++) {
-              console.log(intersects[p].object.name);
-              this.__picked.push([intersects[p].object, intersects[p].object.material]);
+              var obj = intersects[p].object;
+              if (!this.__picked.hasOwnProperty(obj.name)) {
+                console.log(obj.name);
+                this.__picked[obj.name] = [obj, obj.material];
+                obj.material = this.__highlightMaterial;
+              }
             }
-            this.__picked.forEach(function(p) {
-              p[0].material = this.__highlightMaterial; 
-            }, this);
           }
         }
         this.__renderer.render(this.__scene, this.__camera);
