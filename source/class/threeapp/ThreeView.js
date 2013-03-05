@@ -46,54 +46,8 @@ qx.Class.define("threeapp.ThreeView",
 
 
     this.addListenerOnce("appear", function() {
-      var qxThis = this;
       var dom_element = this.getContentElement().getDomElement()
       dom_element.appendChild(this.__renderer.domElement);
-
-      document.addEventListener("drop", function(event) {
-        event.preventDefault();
-	var file = event.dataTransfer.files[0];
-
-	var chunks = file.name.split(".");
-	var extension = chunks.pop().toLowerCase();
-	var filename = chunks.join(".");
-
-	var reader = new FileReader();
-	reader.addEventListener("load", function(event) { 
-          if(qxThis.__object !== null) {
-            qxThis.__scene.remove(qxThis.__object);
-            qxThis.__object = null;
-          }
-          var contents = event.target.result; 
-          switch(extension) {
-            case 'obj': 
-              qxThis.__object = new THREE.OBJLoader().parse(contents);
-              break;
-            case 'stl':
-              var geometry = new THREE.STLLoader().parse(contents);
-              geometry.sourceType = "stl";
-              geometry.sourceFile = file.name;
-              geometry.computeCentroids();
-              geometry.computeFaceNormals();
-              geometry.computeBoundingSphere();
-              var material = new THREE.MeshLambertMaterial();
-              material.side = THREE.DoubleSide;
-              var mesh = new THREE.Mesh(geometry, material);
-              mesh.name = filename;
-              qxThis.__object = new THREE.Object3D();
-              qxThis.__object.add(mesh);
-              break;
-          }
-          if(qxThis.__object !== null) {
-            qxThis.__object.name = filename;
-            qxThis.__scene.add(qxThis.__object);
-            qxThis.resetViewOnAxis(threeapp.ThreeView.AXIS.X, 1);
-          }
-	}, false);
-
-        reader.readAsText(file);
-      }, false);
-
     }, this);
   },
   statics :
@@ -103,6 +57,14 @@ qx.Class.define("threeapp.ThreeView",
   },
   members :
   {
+    addObject : function(obj) {
+      if(this.__object !== null) {
+        this.__scene.remove(this.__object);
+      }
+      this.__object = obj;
+      this.__scene.add(this.__object);
+      this.resetViewOnAxis(this.self(arguments).AXIS.X, 1);
+    },
     getObjectStructure : function() {
       var names = [];
       if(this.__object !== null) {

@@ -17,6 +17,9 @@
 
 /**
  * This is the main application class of your custom application "ThreeApp"
+ *
+ * @ignore(FileReader)
+ * @ignore(THREE)
  */
 qx.Class.define("threeapp.Application",
 {
@@ -102,13 +105,22 @@ qx.Class.define("threeapp.Application",
       toolbar.add(zMinusButton);
 
       // main section
-      var splitContainer = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-      splitContainer.setAppearance("app-main");
+      var mainSplit = new qx.ui.splitpane.Pane("horizontal");
+      mainContainer.add(mainSplit, {flex:1});
+
+      var treeModel = {name:"foo", children:[
+        {name:"bar"}, {name:"baz", children:[]}]};
+      treeModel = qx.data.marshal.Json.createModel(treeModel, true);
+
+      // TODO: use TreeVirtual as it provides columns
+      var tree = new qx.ui.tree.VirtualTree(treeModel, "name", "children");
+      mainSplit.add(tree, 1);
+
       var threeView = new threeapp.ThreeView();
       //console.log(threeView.getBackgroundColor());
       //console.log(threeView.getBackgroundAlpha());
       //threeView.setBackgroundColor("0xff0000",1.0);
-      mainContainer.add(threeView, {flex:1});
+      mainSplit.add(threeView, 5);
 
       // footer
       var footerContainer = new qx.ui.container.Composite(new qx.ui.layout.HBox());
@@ -127,6 +139,46 @@ qx.Class.define("threeapp.Application",
       yMinusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.Y, -1); }, this );
       zPlusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.Z, 1); }, this );
       zMinusButton.addListener("execute", function() { threeView.resetViewOnAxis(threeapp.ThreeView.AXIS.Z, -1); }, this );
+
+      // allow file drop in 3D view
+      document.addEventListener("drop", function(event) {
+        event.preventDefault();
+	var file = event.dataTransfer.files[0];
+
+	var chunks = file.name.split(".");
+	var extension = chunks.pop().toLowerCase();
+	var filename = chunks.join(".");
+
+	var reader = new FileReader();
+	reader.addEventListener("load", function(event) { 
+          var contents = event.target.result; 
+          var object = null;
+          switch(extension) {
+            case 'obj': 
+              object = new THREE.OBJLoader().parse(contents);
+              break;
+            case 'stl':
+              var geometry = new THREE.STLLoader().parse(contents);
+              geometry.sourceType = "stl";
+              geometry.sourceFile = file.name;
+              geometry.computeCentroids();
+              geometry.computeFaceNormals();
+              geometry.computeBoundingSphere();
+              var material = new THREE.MeshLambertMaterial();
+              material.side = THREE.DoubleSide;
+              var mesh = new THREE.Mesh(geometry, material);
+              mesh.name = filename;
+              object = new THREE.Object3D();
+              object.add(mesh);
+              break;
+          }
+          if(object !== null) {
+            object.name = filename;
+            threeView.addObject(object);
+          }
+	}, false);
+        reader.readAsText(file);
+      }, false);
     }
   }
 });
