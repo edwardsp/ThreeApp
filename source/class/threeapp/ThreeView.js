@@ -34,8 +34,6 @@ qx.Class.define("threeapp.ThreeView",
     this.__scene.add(this.__light1);
     this.__scene.add(this.__light2);
 
-    this.addListener("resize", function(e) { this.resize(e.getData()); }, this);
-
     this.addListener("mousedown", this.__mousedown, this);
     this.addListener("mousewheel", this.__mousewheel, this);
 
@@ -45,9 +43,14 @@ qx.Class.define("threeapp.ThreeView",
     this.__highlightMaterial.color.setRGB(1,0,0);
 
 
-    this.addListenerOnce("appear", function() {
+    this.addListenerOnce("appear", function(e) {
       var dom_element = this.getContentElement().getDomElement()
       dom_element.appendChild(this.__renderer.domElement);
+      
+      // resize now as we know it is on the screen
+      this.__resize(e);
+      // add listener for future events
+      this.addListener("resize", this.__resize, this);
     }, this);
   },
   statics :
@@ -128,18 +131,19 @@ qx.Class.define("threeapp.ThreeView",
       this.__target.copy(bsphere.center);
       this.__update();
     },
-    resize : function(sz) {
-      // for controls
-      this.__screen.width = sz.width;
-      this.__screen.height = sz.height;
-      this.__screen.offsetLeft = sz.left;
-      this.__screen.offsetTop = sz.top;
-      this.__radius = (sz.width + sz.height) / 4;
+    __resize : function(e) {
+      // takes event where we can get the container location
+      var box = e.getTarget().getContainerLocation("box");
+      this.__screen.offsetLeft = box.left;
+      this.__screen.offsetTop = box.top;
+      this.__screen.width = box.right - box.left;
+      this.__screen.height = box.bottom - box.top;
+      this.__radius = (this.__screen.width + this.__screen.height) / 4;
 
       if (this.__camera !== null && this.__renderer !== null) {
-        this.__camera.aspect = sz.width / sz.height;
+        this.__camera.aspect = this.__screen.width / this.__screen.height;
         this.__camera.updateProjectionMatrix();
-        this.__renderer.setSize(sz.width, sz.height);
+        this.__renderer.setSize(this.__screen.width, this.__screen.height);
         this.__renderer.render(this.__scene, this.__camera);
       }
     },
@@ -198,7 +202,17 @@ qx.Class.define("threeapp.ThreeView",
           this.__picked = null;
         }
         if(this.__object !== null) {
-          var vector = new THREE.Vector3(((mouseEvent.getViewportLeft()-this.__screen.offsetLeft)/this.__screen.width)*2-1, -((mouseEvent.getViewportTop()-this.__screen.offsetTop)/this.__screen.height)*2+1, 0.5);
+          var vector = new THREE.Vector3(
+            ((mouseEvent.getViewportLeft()-this.__screen.offsetLeft)/this.__screen.width)*2-1, 
+            -((mouseEvent.getViewportTop()-this.__screen.offsetTop)/this.__screen.height)*2+1, 
+            0.5);
+          /* console logging for debugging selection issues
+          console.log("mouse pos = ("+mouseEvent.getViewportLeft()+","+mouseEvent.getViewportTop()+")");
+          console.log("screen: offsetLeft="+this.__screen.offsetLeft
+            +", offsetTop="+this.__screen.offsetTop
+            +", width="+this.__screen.width
+            +", height="+this.__screen.height);
+          */
           this.__projector.unprojectVector(vector, this.__camera);
           this.__ray.set(this.__camera.position, vector.sub(this.__camera.position).normalize());
           var objects = [this.__object];
