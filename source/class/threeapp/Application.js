@@ -158,7 +158,7 @@ qx.Class.define("threeapp.Application",
               object = new THREE.OBJLoader().parse(contents);
               break;
             case 'stl':
-              var geometry = new THREE.STLLoader().parse(contents);
+              var geometry = new THREE.STLLoader().parseASCII(contents);
               geometry.sourceType = "stl";
               geometry.sourceFile = file.name;
               geometry.computeCentroids();
