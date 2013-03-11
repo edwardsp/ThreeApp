@@ -64,21 +64,19 @@ THREE.OBJLoader.prototype = {
 
 		}
 
-		function get_group_vertex_id( global_id ) {
+		function get_id( p ) {
 
-			if ( vertex_lookup.hasOwnProperty( global_id ) ) {
+			if ( vlookup[ p ] === -1 ) { 
 
-				return vertex_lookup[ global_id ];
+				geometry.vertices.push(
+					vertices[ p ]
+				);
+
+				vlookup[ p ] = vcount++;
 
 			}
 
-			geometry.vertices.push(
-				vertices[ global_id ]
-			);	
-
-			vertex_lookup[ global_id ] = vertex_count;
-
-			return vertex_count++;
+			return vlookup[ p ];
 
 		}
 
@@ -106,8 +104,11 @@ THREE.OBJLoader.prototype = {
 
 				geometry = new THREE.Geometry();
 				mesh = new THREE.Mesh( geometry, material );
-				vertex_lookup = [];
-				vertex_count = 0;
+
+				for(var i=0, il=vertices.length; i < il; i++) {
+					vlookup[i] = -1;
+				}
+				vcount = 0;
 
 			}
 
@@ -116,7 +117,7 @@ THREE.OBJLoader.prototype = {
 
 				material = new THREE.MeshLambertMaterial();
 				material.name = materialName;
-
+				material.side = THREE.DoubleSide;
 				mesh.material = material;
 
 			}
@@ -136,8 +137,8 @@ THREE.OBJLoader.prototype = {
 		var uvs = [];
 
 		// used to keep track of which points are used in a group
-		var vertex_lookup = [];
-		var vertex_count = 0;
+		var vlookup = [];
+		var vcount = 0;
 
 		// v float float float
 
@@ -191,6 +192,7 @@ THREE.OBJLoader.prototype = {
 					parseFloat( result[ 2 ] ),
 					parseFloat( result[ 3 ] )
 				) );
+				vlookup.push(-1);
 
 			} else if ( ( result = normal_pattern.exec( line ) ) !== null ) {
 
@@ -218,18 +220,18 @@ THREE.OBJLoader.prototype = {
 				if ( result[ 4 ] === undefined ) {
 
 					geometry.faces.push( face3(
-						get_group_vertex_id( parseInt( result[ 1 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 3 ] ) - 1 )
+						get_id( parseInt( result[ 1 ] ) - 1 ),
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 3 ] ) - 1 )
 					) );
 
 				} else {
 
 					geometry.faces.push( face4(
-						get_group_vertex_id( parseInt( result[ 1 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 3 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 4 ] ) - 1 )
+						get_id( parseInt( result[ 1 ] ) - 1 ),
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 3 ] ) - 1 ),
+						get_id( parseInt( result[ 4 ] ) - 1 )
 					) );
 
 				}
@@ -241,9 +243,9 @@ THREE.OBJLoader.prototype = {
 				if ( result[ 10 ] === undefined ) {
 
 					geometry.faces.push( face3(
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 5 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 8 ] ) - 1 )
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 5 ] ) - 1 ),
+						get_id( parseInt( result[ 8 ] ) - 1 )
 					) );
 
 					geometry.faceVertexUvs[ 0 ].push( [
@@ -255,10 +257,10 @@ THREE.OBJLoader.prototype = {
 				} else {
 
 					geometry.faces.push( face4(
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 5 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 8 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 11 ] ) - 1 )
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 5 ] ) - 1 ),
+						get_id( parseInt( result[ 8 ] ) - 1 ),
+						get_id( parseInt( result[ 11 ] ) - 1 )
 					) );
 
 					geometry.faceVertexUvs[ 0 ].push( [
@@ -277,9 +279,9 @@ THREE.OBJLoader.prototype = {
 				if ( result[ 13 ] === undefined ) {
 
 					geometry.faces.push( face3(
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 6 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 10 ] ) - 1 ),
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 6 ] ) - 1 ),
+						get_id( parseInt( result[ 10 ] ) - 1 ),
 						[
 							normals[ parseInt( result[ 4 ] ) - 1 ],
 							normals[ parseInt( result[ 8 ] ) - 1 ],
@@ -296,10 +298,10 @@ THREE.OBJLoader.prototype = {
 				} else {
 
 					geometry.faces.push( face4(
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 6 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 10 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 14 ] ) - 1 ),
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 6 ] ) - 1 ),
+						get_id( parseInt( result[ 10 ] ) - 1 ),
+						get_id( parseInt( result[ 14 ] ) - 1 ),
 						[
 							normals[ parseInt( result[ 4 ] ) - 1 ],
 							normals[ parseInt( result[ 8 ] ) - 1 ],
@@ -324,9 +326,9 @@ THREE.OBJLoader.prototype = {
 				if ( result[ 10 ] === undefined ) {
 
 					geometry.faces.push( face3(
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 5 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 8 ] ) - 1 ),
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 5 ] ) - 1 ),
+						get_id( parseInt( result[ 8 ] ) - 1 ),
 						[
 							normals[ parseInt( result[ 3 ] ) - 1 ],
 							normals[ parseInt( result[ 6 ] ) - 1 ],
@@ -337,10 +339,10 @@ THREE.OBJLoader.prototype = {
 				} else {
 
 					geometry.faces.push( face4(
-						get_group_vertex_id( parseInt( result[ 2 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 5 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 8 ] ) - 1 ),
-						get_group_vertex_id( parseInt( result[ 11 ] ) - 1 ),
+						get_id( parseInt( result[ 2 ] ) - 1 ),
+						get_id( parseInt( result[ 5 ] ) - 1 ),
+						get_id( parseInt( result[ 8 ] ) - 1 ),
+						get_id( parseInt( result[ 11 ] ) - 1 ),
 						[
 							normals[ parseInt( result[ 3 ] ) - 1 ],
 							normals[ parseInt( result[ 6 ] ) - 1 ],
@@ -351,7 +353,7 @@ THREE.OBJLoader.prototype = {
 
 				}
 
-			} else if ( line.startsWith( "o " ) ) {
+			} else if ( /^o /.test( line ) ) {
 
 				// object
 
@@ -359,23 +361,23 @@ THREE.OBJLoader.prototype = {
 				object.name = line.substring( 2 ).trim();
 				group.add( object );
 
-			} else if ( line.startsWith( "g " ) ) {
+			} else if ( /^g /.test( line ) ) {
 
 				// group
 
 				meshN( line.substring( 2 ).trim(), undefined );
 
-			} else if ( line.startsWith( "usemtl " ) ) {
+			} else if ( /^usemtl /.test( line ) ) {
 
 				// material
 
 				meshN( undefined, line.substring( 7 ).trim() );
 
-			} else if ( line.startsWith( "mtllib ") ) {
+			} else if ( /^mtllib /.test( line ) ) {
 
 				// mtl file
 
-			} else if ( line.startsWith( "s ") ) {
+			} else if ( /^s /.test( line ) ) {
 
 				// smooth shading
 

@@ -128,7 +128,7 @@ qx.Class.define("threeapp.ThreeView",
       this.__update();
     },
     __resize : function(e) {
-      sz = e.getData();
+      var sz = e.getData();
       if (this.__camera !== null && this.__renderer !== null) {
         this.__camera.aspect = sz.width / sz.height;
         this.__camera.updateProjectionMatrix();
