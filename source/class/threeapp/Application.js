@@ -108,13 +108,9 @@ qx.Class.define("threeapp.Application",
       var mainSplit = new qx.ui.splitpane.Pane("horizontal");
       mainContainer.add(mainSplit, {flex:1});
 
-      var treeModel = {name:"foo", children:[
-        {name:"bar"}, {name:"baz", children:[]}]};
-      treeModel = qx.data.marshal.Json.createModel(treeModel, true);
-
       // TODO: use TreeVirtual as it provides columns
-      var tree = new qx.ui.tree.VirtualTree(treeModel, "name", "children");
-      mainSplit.add(tree, 1);
+      var objectInspector = new threeapp.ui.ObjectInspector();
+      mainSplit.add(objectInspector, 1);
 
       var threeView = new threeapp.ThreeView();
       //console.log(threeView.getBackgroundColor());
@@ -175,6 +171,18 @@ qx.Class.define("threeapp.Application",
           if(object !== null) {
             object.name = filename;
             threeView.addObject(object);
+            var makeTreeData = function(obj) {
+              var data = {name:obj.name};
+              if (obj.children.length > 0) {
+                data.children = [];
+                for(var i=0; i<obj.children.length; i++) {
+                  data.children.push(makeTreeData(obj.children[i]));
+                }
+              }
+              return data;
+            }
+            var treeData = makeTreeData(object);
+            objectInspector.setData(treeData);
           }
 	}, false);
         reader.readAsText(file);
