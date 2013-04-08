@@ -118,6 +118,9 @@ qx.Class.define("threeapp.Application",
       //threeView.setBackgroundColor("0xff0000",1.0);
       mainSplit.add(threeView, 5);
 
+      objectInspector.addListener("selection", function(d) { threeView.select(d.getData()); }, this);
+      threeView.addListener("selection", function(d) { objectInspector.select(d.getData()); }, this);
+
       // footer
       var footerContainer = new qx.ui.container.Composite(new qx.ui.layout.HBox());
       footerContainer.setAppearance("app-footer");
